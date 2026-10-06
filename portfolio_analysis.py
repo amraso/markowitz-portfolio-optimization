@@ -35,7 +35,7 @@ data = yf.download(
     TICKERS,
     start=START_DATE,
     auto_adjust=True,
-    progress=False,
+    progress=False
 )["Close"]
 
 print("\nDownloaded price data:")
@@ -278,22 +278,26 @@ for _ in range(N_PORTFOLIOS):
         len(data.columns)
     )
 
-    random_weights /= (
-        random_weights.sum()
+    random_weights = (
+        random_weights
+        / random_weights.sum()
     )
 
+    # Expected annual return
     portfolio_return = (
         random_weights
         @ mean_returns
         * TRADING_DAYS
     )
 
+    # Daily variance
     portfolio_variance = (
         random_weights
         @ covariance
         @ random_weights
     )
 
+    # Annualized volatility
     portfolio_volatility = (
         np.sqrt(portfolio_variance)
         * np.sqrt(TRADING_DAYS)
@@ -469,6 +473,7 @@ def portfolio_variance_gradient(
     )
 
 
+# Sum of weights must be 1
 constraints = (
     {
         "type": "eq",
@@ -478,6 +483,7 @@ constraints = (
 )
 
 
+# No short selling
 bounds = tuple(
     (0, 1)
     for _ in range(n_assets)
@@ -517,10 +523,6 @@ optimal_volatility = np.sqrt(
 )
 
 
-# ============================================================
-# 12. OPTIMIZATION RESULTS
-# ============================================================
-
 print(
     "\nExact minimum-volatility portfolio:"
 )
@@ -554,3 +556,158 @@ print(
     "Optimizer message:",
     result.message
 )
+
+
+# ============================================================
+# 12. EFFICIENT FRONTIER
+# ============================================================
+
+# We calculate the minimum possible volatility
+# for many different target returns.
+
+target_returns = np.linspace(
+    asset_returns_annual.min(),
+    asset_returns_annual.max(),
+    100
+)
+
+frontier_returns = []
+frontier_volatilities = []
+frontier_weights_list = []
+
+
+for target_return in target_returns:
+
+    frontier_constraints = (
+        {
+            "type": "eq",
+            "fun": lambda weights:
+                np.sum(weights) - 1
+        },
+
+        {
+            "type": "eq",
+            "fun": lambda weights, target=target_return:
+                (
+                    weights
+                    @ mean_returns
+                    * TRADING_DAYS
+                    - target
+                )
+        }
+    )
+
+
+    frontier_result = minimize(
+        portfolio_variance,
+        initial_weights,
+        args=(covariance,),
+        jac=portfolio_variance_gradient,
+        method="SLSQP",
+        bounds=bounds,
+        constraints=frontier_constraints,
+        options={
+            "ftol": 1e-12,
+            "maxiter": 1000
+        }
+    )
+
+
+    if frontier_result.success:
+
+        frontier_weights = (
+            frontier_result.x
+        )
+
+        frontier_variance = (
+            frontier_weights
+            @ covariance
+            @ frontier_weights
+            * TRADING_DAYS
+        )
+
+        frontier_volatility = np.sqrt(
+            frontier_variance
+        )
+
+        frontier_returns.append(
+            target_return
+        )
+
+        frontier_volatilities.append(
+            frontier_volatility
+        )
+
+        frontier_weights_list.append(
+            frontier_weights
+        )
+
+
+frontier_returns = np.array(
+    frontier_returns
+)
+
+frontier_volatilities = np.array(
+    frontier_volatilities
+)
+
+frontier_weights_list = np.array(
+    frontier_weights_list
+)
+
+
+# ============================================================
+# 13. PLOT EFFICIENT FRONTIER
+# ============================================================
+
+plt.figure(figsize=(9, 6))
+
+# Random portfolios
+plt.scatter(
+    portfolio_volatilities,
+    portfolio_returns,
+    s=10,
+    alpha=0.25,
+    label="Random portfolios"
+)
+
+# Efficient frontier
+plt.plot(
+    frontier_volatilities,
+    frontier_returns,
+    linewidth=2.5,
+    label="Minimum-variance frontier"
+)
+
+# Exact global minimum-volatility portfolio
+plt.scatter(
+    optimal_volatility,
+    optimal_return,
+    s=170,
+    marker="*",
+    label="Minimum-volatility portfolio"
+)
+
+plt.xlabel(
+    "Annualized Volatility"
+)
+
+plt.ylabel(
+    "Annualized Expected Return"
+)
+
+plt.title(
+    "Portfolio Efficient Frontier"
+)
+
+plt.legend()
+plt.grid(alpha=0.3)
+plt.tight_layout()
+
+plt.savefig(
+    f"{FIGURE_DIR}/efficient_frontier.png",
+    dpi=300,
+    bbox_inches="tight"
+)
+
+plt.show()
