@@ -25,15 +25,15 @@ The analysis uses four ETFs:
 
 Portfolio expected return:
 
-$
+$$
 \mu_p = w^T \mu
-$
+$$
 
 Portfolio variance:
 
-$
+$$
 \sigma_p^2 = w^T \Sigma w
-$
+$$
 
 where:
 
@@ -43,15 +43,15 @@ where:
 
 The numerical optimization minimizes portfolio variance subject to:
 
-$
+$$
 \sum_i w_i = 1
-$
+$$
 
 and:
 
-$
+$$
 0 \leq w_i \leq 1
-$
+$$
 
 which corresponds to a fully invested portfolio without short selling.
 
