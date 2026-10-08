@@ -1,4 +1,4 @@
-# Portfolio Optimization with Python
+# Project 1 — Markowitz Portfolio Optimization with Python
 
 This project explores portfolio risk and diversification using historical market data.
 
